@@ -83,12 +83,9 @@ export default function Account({navigation, route}) {
 
         <View
           style={{
-            marginVertical: 2,
-            padding: 5,
-            paddingHorizontal: 10,
+            padding: 10,
             backgroundColor: Color.blueGray[50],
-            borderRadius: 30,
-            height: 40,
+            borderRadius: 10,
           }}>
           <Text
             style={{
@@ -132,23 +129,14 @@ export default function Account({navigation, route}) {
                 alignItems: 'center',
               }}></View>
             <View style={{padding: 10}}>
-              <MyList 
-                label="Nama Lengkap" 
-                value={user.nama_lengkap || 'Belum diisi'} 
+              <MyList
+                label="Nama Petugas"
+                value={user.nama_petugas || 'Belum diisi'}
               />
-              <MyList 
-                label="Username" 
-                value={user.username || 'Belum diisi'} 
-              />
-              {user.created_at && (
-                <MyList 
-                  label="Bergabung Sejak" 
-                  value={moment(user.created_at).format('DD MMMM YYYY')} 
-                />
-              )}
-              <MyList 
-                label="Status Akun" 
-                value={user.syncedToServer ? 'Online' : 'Offline'} 
+              <MyList label="Username" value={user.username || 'Belum diisi'} />
+              <MyList
+                label="Telepon"
+                value={user.telepon_petugas || 'Belum diisi'}
               />
             </View>
             {/* data detail */}

@@ -11,7 +11,7 @@ import axios from 'axios';
 import {apiURL, storeData, getData} from '../../utils/localStorage';
 import MyLoading from '../../components/MyLoading';
 import {TouchableOpacity} from 'react-native';
-import { Image } from 'react-native';
+import {Image} from 'react-native';
 
 export default function Login({navigation, route}) {
   const [kirim, setKirim] = useState({
@@ -29,35 +29,34 @@ export default function Login({navigation, route}) {
   };
 
   const [loading, setLoading] = useState(false);
-  
+
   // Fungsi untuk login lokal
   const loginLocal = async () => {
     try {
-      const localUsers = await getData('local_users') || [];
-      
+      const localUsers = (await getData('local_users')) || [];
+
       // Cari user berdasarkan username dan password
-      const user = localUsers.find(u => 
-        u.username === kirim.username && 
-        u.password === kirim.password
+      const user = localUsers.find(
+        u => u.username === kirim.username && u.password === kirim.password,
       );
-      
+
       if (user) {
         return {
           status: 200,
           data: user,
-          message: 'Login berhasil'
+          message: 'Login berhasil',
         };
       } else {
         return {
           status: 400,
-          message: 'Username atau password salah'
+          message: 'Username atau password salah',
         };
       }
     } catch (error) {
       console.error('Error reading local storage:', error);
       return {
         status: 500,
-        message: 'Terjadi kesalahan saat login'
+        message: 'Terjadi kesalahan saat login',
       };
     }
   };
@@ -70,11 +69,11 @@ export default function Login({navigation, route}) {
     } else {
       console.log(kirim);
       setLoading(true);
-      
+
       try {
         // Coba login ke server dulu
         const response = await axios.post(apiURL + 'login', kirim);
-        
+
         setTimeout(() => {
           setLoading(false);
           if (response.data.status == 200) {
@@ -86,13 +85,12 @@ export default function Login({navigation, route}) {
             toast.show(response.data.message);
           }
         }, 700);
-        
       } catch (error) {
         console.log('Server login failed, trying local storage:', error);
-        
+
         // Jika gagal ke server, coba login lokal
         const localResult = await loginLocal();
-        
+
         setTimeout(() => {
           setLoading(false);
           if (localResult.status == 200) {
@@ -160,7 +158,7 @@ export default function Login({navigation, route}) {
         <MyGap jarak={20} />
         {!loading && <MyButton onPress={sendData} title="MASUK" />}
         {loading && <MyLoading />}
-        
+
         {/* Tombol daftar */}
         <TouchableOpacity
           onPress={() => navigation.navigate('Register')}
@@ -185,7 +183,6 @@ export default function Login({navigation, route}) {
             </Text>
           </Text>
         </TouchableOpacity>
-
       </View>
     </View>
   );

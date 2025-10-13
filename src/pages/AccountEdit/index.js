@@ -132,10 +132,17 @@ export default function AccountEdit({navigation, route}) {
         />
 
         <MyInput
-          label="Nama Lengkap"
+          label="Nama Petugas"
           iconname="person-outline"
-          value={kirim.nama_lengkap}
-          onChangeText={x => setKirim({...kirim, nama_lengkap: x})}
+          value={kirim.nama_petugas}
+          onChangeText={x => setKirim({...kirim, nama_petugas: x})}
+        />
+
+        <MyInput
+          label="Telepon"
+          iconname="call-outline"
+          value={kirim.telepon_petugas}
+          onChangeText={x => setKirim({...kirim, telepon_petugas: x})}
         />
 
         <MyInput
@@ -150,7 +157,7 @@ export default function AccountEdit({navigation, route}) {
 
         {!loading && (
           <MyButton
-            warna={colors.secondary}
+            warna={colors.tertiary}
             colorText={colors.white}
             iconColor={colors.white}
             onPress={sendServer}
