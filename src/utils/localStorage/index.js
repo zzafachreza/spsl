@@ -21,7 +21,7 @@ export const getData = async key => {
 
 //
 //  export const apiURL = 'https://lebay.azeraf.id/api/';
-export const apiURL = 'http://192.168.1.12/spsl/api/';
+export const apiURL = 'http://172.20.10.2/spsl/api/';
 
 export const MYAPP = 'Lebay Stock';
 export const api_token =

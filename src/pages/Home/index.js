@@ -1,4 +1,11 @@
-import {StyleSheet, Text, View, ScrollView, TouchableOpacity, Dimensions} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
 import React, {useState, useEffect} from 'react';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {colors, fonts} from '../../utils';
@@ -13,19 +20,10 @@ export default function Home({navigation}) {
 
   // Mengambil data user yang sedang login
   useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const userData = await getData('user');
-        if (userData) {
-          setUser(userData);
-          console.log('User data loaded:', userData);
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      }
-    };
-
-    getUserData();
+    getData('user').then(u => {
+      console.log(u);
+      setUser(u);
+    });
   }, []);
 
   const navigateToInput = () => {
@@ -58,14 +56,13 @@ export default function Home({navigation}) {
         </View>
       </LinearGradient>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}>
-        
         {/* Menu Container */}
         <View style={styles.menuContainer}>
           {/* Menu Input */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.menuCard}
             onPress={navigateToInput}
             activeOpacity={0.7}>
@@ -85,7 +82,7 @@ export default function Home({navigation}) {
           </TouchableOpacity>
 
           {/* Menu Riwayat */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.menuCard}
             onPress={navigateToRiwayat}
             activeOpacity={0.7}>
@@ -104,9 +101,6 @@ export default function Home({navigation}) {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-
-     
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -129,7 +123,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    top: 10
+    top: 10,
   },
   logo: {
     width: 80,
@@ -152,7 +146,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 8,

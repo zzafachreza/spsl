@@ -4,9 +4,11 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  PermissionsAndroid,
   StyleSheet,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import React, {useState, useEffect} from 'react';
 import {colors, fonts, windowWidth} from '../../utils';
@@ -15,7 +17,18 @@ import {launchImageLibrary} from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import axios from 'axios';
+import {useToast} from 'react-native-toast-notifications';
+import MlkitOcr from 'react-native-mlkit-ocr';
 import {apiURL, getData} from '../../utils/localStorage';
+import TesseractOcr, {
+  LANG_ENGLISH,
+  LEVEL_WORD,
+  LANG_INDONESIAN,
+} from 'react-native-tesseract-ocr';
+import GetLocation from 'react-native-get-location';
+
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import {Linking} from 'react-native';
 
 export default function InputDataSurvey({navigation}) {
   // State untuk form data
@@ -116,7 +129,71 @@ export default function InputDataSurvey({navigation}) {
     }));
   };
 
-  const selectPhoto = async photoType => {
+  const requestStoragePermission = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        if (Platform.Version >= 33) {
+          const result = await request(
+            PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE,
+          );
+
+          const allGranted = Object.values(result).every(
+            r => r === RESULTS.GRANTED,
+          );
+
+          if (allGranted) {
+            console.log('📂 Semua izin media diberikan');
+            return true;
+          } else {
+            console.log('🚫 Beberapa izin media ditolak');
+            return false;
+          }
+        } else {
+          const result = await request(
+            PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+          );
+          return result === RESULTS.GRANTED;
+        }
+      } else {
+        const result = await request(PERMISSIONS.IOS.PHOTO_LIBRARY);
+        return result === RESULTS.GRANTED;
+      }
+    } catch (error) {
+      console.warn('Error meminta izin storage:', error);
+      return false;
+    }
+  };
+
+  const parseKTPData = ocrResult => {
+    try {
+      // Gabungkan semua text
+      const fullText = ocrResult.map(block => block.text).join('\n');
+      console.log('📄 Full OCR Text:', fullText);
+
+      let nik = '';
+      let nama = '';
+      let jenisKelamin = '';
+
+      // Split per baris
+      const lines = fullText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line);
+
+      return {
+        nik: lines[11],
+        nama: lines[12],
+      };
+    } catch (error) {
+      console.error('❌ Error parsing KTP:', error);
+      return {
+        nik: null,
+        nama: null,
+      };
+    }
+  };
+
+  const selectPhoto = async (photoType, ocr) => {
     const options = {
       mediaType: 'photo',
       quality: 0.8,
@@ -126,38 +203,64 @@ export default function InputDataSurvey({navigation}) {
       if (response.didCancel || !response.assets) return;
 
       const imageUri = response.assets[0].uri;
+
       try {
         const cropped = await ImageCropPicker.openCropper({
           path: imageUri,
           width: 800,
           height: 800,
           cropping: true,
-          includeBase64: true,
+          includeBase64: false, // Tidak perlu base64 untuk OCR
         });
+
+        // Normalize path untuk Android/iOS
+        let imagePath = cropped.path;
+
+        // Untuk Android, hilangkan 'file://' prefix jika ada
+        if (Platform.OS === 'android') {
+          imagePath = imagePath.replace('file://', '');
+        }
+
+        console.log('Image path untuk OCR:', imagePath);
 
         setPhotos(prev => ({
           ...prev,
           [photoType]: {
             uri: cropped.path,
-            base64: cropped.data,
           },
         }));
-      } catch (err) {
-        console.log('Crop canceled', err);
-      }
-      // if (response.assets && response.assets[0]) {
-      //   setPhotos(prev => ({
-      //     ...prev,
-      //     [photoType]: response.assets[0],
-      //   }));
-      // }
 
-      // if (response.assets && response.assets[0]) {
-      //   setPhotos(prev => ({
-      //     ...prev,
-      //     [photoType]: response.assets[0],
-      //   }));
-      // }
+        if (ocr) {
+          console.log('🔍 Starting OCR...');
+
+          const ocrResult = await MlkitOcr.detectFromUri(cropped.path);
+
+          console.log('✅ OCR Complete');
+          console.log('Raw OCR Result:', ocrResult);
+
+          if (!ocrResult || ocrResult.length === 0) {
+            Alert.alert(
+              'Hasil OCR',
+              'Tidak ada teks terdeteksi.\n\nTips:\n• Pastikan foto jelas\n• Pencahayaan cukup\n• Teks kontras',
+            );
+            return;
+          }
+
+          // Parse data KTP
+          const ktpData = parseKTPData(ocrResult);
+
+          console.log('📋 Parsed KTP Data:', ktpData);
+
+          setFormData({
+            ...formData,
+            nama_lengkap: ktpData.nama,
+            nomor_ktp: ktpData.nik,
+          });
+        }
+      } catch (err) {
+        console.error('Error detail:', err);
+        Alert.alert('Error', `Gagal melakukan OCR: ${err.message}`);
+      }
     });
   };
 
@@ -202,12 +305,12 @@ export default function InputDataSurvey({navigation}) {
     </View>
   );
 
-  const renderPhotoUpload = (label, photoType) => (
+  const renderPhotoUpload = (label, photoType, ocr = false) => (
     <View style={styles.inputContainer}>
       <Text style={styles.label}>{label}</Text>
       <TouchableOpacity
         style={styles.photoButton}
-        onPress={() => selectPhoto(photoType)}>
+        onPress={() => selectPhoto(photoType, ocr)}>
         {photos[photoType] ? (
           <Image
             source={{uri: photos[photoType].uri}}
@@ -224,6 +327,8 @@ export default function InputDataSurvey({navigation}) {
       </TouchableOpacity>
     </View>
   );
+
+  const toast = useToast();
 
   const handleSubmit = async () => {
     // Validasi form
@@ -246,8 +351,14 @@ export default function InputDataSurvey({navigation}) {
         petugas: user,
       };
 
+      // Linking.openURL(apiURL);
+
       axios.post(apiURL + 'insert_transaksi', surveyData).then(res => {
         console.log(res.data);
+        toast.show('Data berhasil disimpan !', {
+          type: 'success',
+        });
+        navigation.goBack();
       });
 
       // // Ambil data survey yang sudah ada
@@ -282,8 +393,27 @@ export default function InputDataSurvey({navigation}) {
   };
 
   const [user, setUser] = useState({});
+  const getLocation = () => {
+    GetLocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 60000,
+    })
+      .then(location => {
+        console.log(location);
+        setFormData({
+          ...formData,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+      })
+      .catch(error => {
+        const {code, message} = error;
+        console.warn(code, message);
+      });
+  };
   useEffect(() => {
     getData('user').then(u => setUser(u));
+    getLocation();
   }, []);
 
   return (
@@ -296,7 +426,7 @@ export default function InputDataSurvey({navigation}) {
         {/* I. IDENTITAS PENGHUNI RUMAH */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>I. IDENTITAS PENGHUNI RUMAH</Text>
-          {renderPhotoUpload('Foto KTP', 'foto_ktp')}
+          {renderPhotoUpload('Foto KTP', 'foto_ktp', true)}
           {renderTextInput(
             '1. Nama Lengkap *',
             'nama_lengkap',
@@ -426,7 +556,6 @@ export default function InputDataSurvey({navigation}) {
             'Fungsi wilayah',
           )}
         </View>
-
         {/* II. KONDISI FISIK RUMAH */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>II. KONDISI FISIK RUMAH</Text>
@@ -634,7 +763,6 @@ export default function InputDataSurvey({navigation}) {
             ],
           )}
         </View>
-
         {/* III. KONDISI LINGKUNGAN */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>III. KONDISI LINGKUNGAN</Text>
@@ -700,16 +828,21 @@ export default function InputDataSurvey({navigation}) {
             'Kondisi banjir jalan',
           )}
         </View>
-
         {/* KOORDINAT & FOTO */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>KOORDINAT & DOKUMENTASI</Text>
+          <Text style={styles.subSectionTitle}>
+            Latitude : {formData.latitude}
+          </Text>
+          <Text style={styles.subSectionTitle}>
+            Longitude : {formData.longitude}
+          </Text>
 
-          {renderTextInput('Latitude', 'latitude', 'Contoh: 2.20887507S')}
+          {/* {renderTextInput('Latitude', 'latitude', 'Contoh: 2.20887507S')}
           {renderTextInput('Longitude', 'longitude', 'Contoh: 113.92528864E')}
-          {renderTextInput('Kode Foto', 'kode', 'Kode foto')}
+          {renderTextInput('Kode Foto', 'kode', 'Kode foto')} */}
 
-          <Text style={styles.subSectionTitle}>FOTO-FOTO RUMAH</Text>
+          <Text style={styles.sectionTitle}>FOTO-FOTO RUMAH</Text>
 
           {renderPhotoUpload(
             'Foto Tampak Depan/Perspektif Kiri',
@@ -730,12 +863,10 @@ export default function InputDataSurvey({navigation}) {
           {renderPhotoUpload('Foto Dinding', 'foto_dinding')}
           {renderPhotoUpload('Foto Atap', 'foto_atap')}
         </View>
-
         {/* SUBMIT BUTTON */}
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
           <Text style={styles.submitButtonText}>SIMPAN DATA SURVEY</Text>
         </TouchableOpacity>
-
         <View style={{height: 50}} />
       </ScrollView>
     </View>
